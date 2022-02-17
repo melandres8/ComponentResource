@@ -1,5 +1,5 @@
 import pulumi_google_native.storage.v1 as storage
-from pulumi import Config, ComponentResource, ResourceOptions
+from pulumi import Config, ComponentResource, FileArchive, FileAsset, ResourceOptions
 
 
 config = Config()
@@ -36,7 +36,7 @@ class MyBuckets(ComponentResource):
 
         image = storage.BucketObject('tt',
             bucket=bucket.name,
-            source='./files/IMG_1512.jpg'
+            source=FileAsset('./files/IMG_1512.jpg')
         )
 
         self.register_outputs({
