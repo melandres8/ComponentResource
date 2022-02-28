@@ -72,6 +72,7 @@ class MyBuckets(ComponentResource):
             resource_name="bucket-clone",
             description="Transfer service for buckets",
             project=project,
+            status=storagetransfer.TransferJobStatus.ENABLED,
             transfer_spec=storagetransfer.TransferSpecArgs(
                 gcs_data_source=stg.TransferJobTransferSpecGcsDataSourceArgs(
                     bucket_name=src_bucket.name,
