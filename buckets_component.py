@@ -21,13 +21,20 @@ class MyBuckets(ComponentResource):
         super().__init__("pkg:index:MyBuckets", bucket_name, None, opts)
         self.bucket_name = bucket_name
         self.project = project
-
+        sv_account = stg.get_transfer_project_servie_account(project=project)
         bucket = storage.Bucket(f'{self.bucket_name}',
                                 project=self.project,
                                 location='US',
                                 storage_class='STANDARD',
-                                opts=ResourceOptions(parent=self)
+                                opts=ResourceOptions(parent=self, delete_before_replace=True)
                                 )
+
+        iam_member = stg.BucketIAMMember("backup-bucket-IAMMember",
+                                         bucket=bucket.name,
+                                         role="roles/storage.admin",
+                                         member=f"serviceAccount:{sv_account.email}",
+                                         opts=ResourceOptions(depends_on=[bucket])
+                                         )
 
         file = storage.BucketObject('idx',
                                     bucket=bucket.name,
@@ -46,7 +53,6 @@ class MyBuckets(ComponentResource):
         #     'bucket_obj1': image.name
         # })
 
-
     @staticmethod
     def get_bucket(resource_name: str):
         bkt = storage.get_bucket(resource_name)
@@ -58,16 +64,18 @@ class MyBuckets(ComponentResource):
         gcs_account = stg.get_transfer_project_servie_account(project=project)
         bucket_backup = storage.Bucket(
             resource_name=dest_bucket_name,
-            storage_class="STANDARD",
+            storage_class="COLDLINE",
             project=project,
-            location="EU"
+            location="US",
+            opts=ResourceOptions(delete_before_replace=True)
         )
-        bucket_iam_member = stg.BucketIAMMember("backup-bucket-IAMMember",
-                                                bucket=bucket_backup.name,
-                                                role="roles/storage.admin",
-                                                member=f"serviceAccount:{gcs_account.email}",
-                                                opts=ResourceOptions(depends_on=[bucket_backup])
-                                                )
+        bucket_iam_member = stg.BucketIAMMember(
+            resource_name="backup-bucket-IAMMember",
+            bucket=bucket_backup.name,
+            role="roles/storage.admin",
+            member=f"serviceAccount:{gcs_account.email}",
+            opts=ResourceOptions(depends_on=[bucket_backup])
+        )
         bucket_transfer = storagetransfer.TransferJob(
             resource_name="bucket-clone",
             description="Transfer service for buckets",
@@ -79,8 +87,11 @@ class MyBuckets(ComponentResource):
                 ),
                 gcs_data_sink=stg.TransferJobTransferSpecGcsDataSinkArgs(
                     bucket_name=bucket_backup.name,
+                ),
+                transfer_options=stg.TransferJobTransferSpecTransferOptionsArgs(
+                    delete_objects_from_source_after_transfer=True,
                 )
             ),
-            opts=ResourceOptions(depends_on=[bucket_iam_member])
+            opts=ResourceOptions(depends_on=[bucket_iam_member]),
         )
         print(gcs_account.email)
